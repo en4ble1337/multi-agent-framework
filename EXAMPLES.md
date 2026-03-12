@@ -1,170 +1,121 @@
-# Examples
+# Example Deployments
 
-This document shows one concrete implementation of The Office and then maps the same pattern to other environments.
+This repository is intentionally generic. The goal is to preserve the operating model, not to force one stack.
 
-The point is not to copy one stack exactly. The point is to preserve the operating model:
+The core invariants are always the same:
 
-- private workspace per agent
-- shared writable surface for public coordination
-- visible chat layer for humans and agents
-- a lock rule for shared files with multiple writers
+- one private workspace per agent
+- one shared surface for public coordination
+- one visible chat path for humans and agents
+- one locking rule for multi-writer files
 
-## Example: Proxmox + Ubuntu VMs + Synology NFS + Discord
+## Example 1: Virtual Machines Plus Shared Filesystem
 
-This is the reference implementation the architecture was written from.
+Shape:
 
-| Layer | Implementation |
-|---|---|
-| Hypervisor | Proxmox |
-| Agent isolation | One VM per agent |
-| Guest OS | Ubuntu |
-| Agent runtime | OpenClaw node on each VM |
-| Shared storage | Synology-backed NFS mounted at `/shared` |
-| Human and agent chat | Discord |
-| Browser-capable agents | Chrome installed on the VM where needed |
-| Shared coordination model | Markdown files on `/shared` |
-| Shared write protection | Lock directories created with `mkdir` |
+- one isolated virtual machine per agent
+- one mounted shared filesystem for `/shared`
+- one chat platform for operator oversight
 
-### Why This Version Works Well
+Why it works:
 
-- VM boundaries are easy to reason about. Each agent gets its own machine identity, local credentials, browser session, and failure domain.
-- NFS keeps the shared surface simple. Every agent sees the same files immediately.
-- Discord works as the office floor. Humans can watch what is happening without building a dashboard.
-- Proxmox makes cloning cheap. New agents can be created from a known-good template quickly.
+- machine-level isolation is easy to reason about
+- browser sessions and local credentials stay separated
+- cloning a prepared image is straightforward
 
-### Example Mapping
+Tradeoffs:
 
-| Office concept | Concrete implementation |
-|---|---|
-| Agent | One OpenClaw node running in its own Ubuntu VM |
-| Desk | `~/.openclaw/workspace/` inside that VM |
-| Shared drive | Synology NFS mount at `/shared` |
-| Conference room | Discord shared channels |
-| Boss's office | DM or per-agent Discord channel |
-| Bulletin board | `/shared/conference/announcements.md` |
-| Employee directory | `/shared/agents/roster.md` |
+- heavier provisioning than containers
+- more operating system management
+- shared storage becomes an important dependency
 
-### Example Topology
+## Example 2: Containers Plus Shared Volume
 
-```text
-Proxmox host
-  |
-  +-- VM: Dwight
-  |     private workspace
-  |     OpenClaw
-  |     /shared -> Synology NFS
-  |
-  +-- VM: Jim
-  |     private workspace
-  |     OpenClaw
-  |     /shared -> Synology NFS
-  |
-  +-- VM: Pam
-  |     private workspace
-  |     OpenClaw
-  |     /shared -> Synology NFS
-  |
-  +-- VM: Kelly
-        private workspace
-        OpenClaw
-        /shared -> Synology NFS
+Shape:
 
-Synology NFS
-  |
-  +-- /shared/company
-  +-- /shared/conference
-  +-- /shared/knowledge
-  +-- /shared/agents
-  +-- /shared/projects
+- one container per agent
+- one mounted shared volume
+- one chat platform for operator oversight
 
-Discord
-  |
-  +-- shared channels
-  +-- one category per agent
-```
+Why it works:
 
-## Other Valid Implementations
+- faster provisioning
+- easier density on one host or cluster
+- compatible with existing container infrastructure
 
-### One machine, multiple agents
+Tradeoffs:
 
-Use separate directories or users for each agent and a single local shared folder.
+- weaker isolation than full virtual machines
+- browser automation and host integration may need extra care
+- storage semantics must still support the lock protocol
 
-This works well when:
+## Example 3: Single Host Plus Per-Agent Users
 
-- you are experimenting
-- your agents do not need browser isolation
-- you want minimal operational overhead
+Shape:
 
-Tradeoff: failure isolation is weaker, and shared resource contention is higher.
+- one machine
+- one OS user or directory per agent
+- one shared local folder
 
-### Containers instead of VMs
+Why it works:
 
-Run one container per agent, mount a shared volume, and keep per-agent secrets isolated.
+- lowest setup overhead
+- good for prototyping or small experiments
+- easy local debugging
 
-This works well when:
+Tradeoffs:
 
-- you want faster provisioning than full VMs
-- browser automation is optional or container-safe in your environment
-- you already operate Docker or Kubernetes
+- weakest failure isolation
+- easier for one agent process to impact others
+- not ideal when agents need separate browser state or credentials
 
-Tradeoff: container boundaries are lighter than VM boundaries, so browser sessions and host integration need more care.
+## Example 4: Cloud Instances Plus Managed Storage
 
-### Cloud VMs instead of self-hosted hypervisors
+Shape:
 
-Replace Proxmox with EC2, Hetzner, DigitalOcean, or any other VM provider.
+- one cloud instance per agent
+- one managed shared filesystem or synchronized storage layer
+- one chat platform for operator oversight
 
-This works well when:
+Why it works:
 
-- you want geographic distribution
-- you want managed compute instead of home-lab hardware
-- you need to scale up or down quickly
+- flexible scaling
+- works without local hardware
+- easy geographic placement when needed
 
-Tradeoff: cost is higher, and shared storage choices need more attention.
+Tradeoffs:
 
-### Shared volume instead of NFS
-
-Use EFS, SMB, Syncthing, CephFS, or a local mounted volume depending on your environment.
-
-This works well when:
-
-- NFS is not available
-- your agents are containerized
-- your infrastructure already provides a shared filesystem
-
-Tradeoff: not every storage system gives you the same locking guarantees, so adapt the lock protocol accordingly.
-
-### Slack, Matrix, or Telegram instead of Discord
-
-Replace Discord with any chat surface that supports direct messages, shared rooms, and bot participation.
-
-This works well when:
-
-- your team already lives somewhere else
-- Discord permissions do not fit your environment
-- you need enterprise controls or another communication style
-
-Tradeoff: channel structure, permissions, and mention behavior will differ, but the coordination pattern stays the same.
+- higher cost
+- more network dependency
+- managed storage semantics must be tested for locking behavior
 
 ## Translation Guide
 
-If your environment differs, map the pattern layer by layer:
+Map the pattern by responsibilities, not product names:
 
-| If you do not have... | Use... | Keep this invariant |
+| Need | Valid implementation choices | Invariant to keep |
 |---|---|---|
-| Proxmox | Any VM manager, containers, or isolated processes | Each agent still needs a distinct private workspace and failure boundary. |
-| NFS | Any shared storage with predictable visibility | Shared artifacts must be visible to all relevant agents. |
-| Discord | Any chat platform | Humans must be able to direct agents and observe coordination. |
-| OpenClaw | Another agent runtime | Agents must be able to read files, write files, and communicate. |
-| `mkdir` lock dirs | Another atomic lock primitive | Multi-writer files must never rely on blind concurrent writes. |
+| Isolation boundary | VM, container, user account, sandbox | Each agent needs a private workspace and bounded blast radius |
+| Shared surface | Network share, synced folder, mounted volume, local directory | Shared artifacts must be visible to every intended writer and reader |
+| Human coordination | Chat rooms, direct messages, ticketing plus chat | Humans must be able to direct work and observe outcomes |
+| Agent runtime | Any process that can read files, write files, and send messages | Agents must be able to act on both local and shared context |
+| Lock primitive | Directory lock, file lock, service lock, transactional write | Multi-writer files must not rely on blind concurrent writes |
+
+## Choosing Between Shapes
+
+Pick the lightest option that still preserves the boundaries you need:
+
+- If secrets, browsers, and failure isolation matter, prefer stronger isolation.
+- If setup speed matters most, prefer lighter isolation.
+- If shared files change often, validate storage visibility and lock semantics first.
+- If human oversight matters, keep chat rooms simple and visible.
 
 ## Minimal Adoption Checklist
 
-Before you implement this pattern anywhere, make sure you have:
+Before using this pattern anywhere, confirm that you have:
 
 1. A private workspace for each agent.
 2. A shared directory or equivalent for public coordination.
-3. A clear list of which files are private, shared, single-owner, and multi-writer.
-4. A chat surface where the human operator and agents can coordinate.
+3. A clear list of private, shared, single-owner, and multi-writer files.
+4. A chat surface for operator oversight.
 5. A documented write-locking rule for shared files.
-
-If those five conditions are true, you can adapt The Office to almost any environment.
