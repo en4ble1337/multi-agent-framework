@@ -55,6 +55,28 @@ This template keeps the baseline simple:
               lock protocol for multi-writer files
 ```
 
+## Example Deployment
+
+One practical production setup for this pattern is a hybrid Proxmox VE deployment:
+
+| Layer | Example |
+|---|---|
+| Hypervisor | Proxmox VE |
+| Browser-capable agents | Ubuntu 24.04 Desktop virtual machines |
+| Headless agents | LXC containers |
+| Shared coordination surface | Centralized NFS share mounted by agents |
+| Communications | Discord for operator instructions, status updates, and cross-agent coordination |
+| Shared content | announcements, knowledge, status, outbox, and project files |
+
+Why this split works:
+
+- Use full VMs for agents that need browser sessions, desktop automation, or stronger isolation.
+- Use LXC containers for agents that are headless and mostly operate on files, APIs, or messaging.
+- Keep coordination centralized on NFS so every agent sees the same shared state immediately.
+- Use Discord as the communication layer because it is simple, visible, and free.
+
+See [EXAMPLES.md](EXAMPLES.md) for more deployment shapes and tradeoffs.
+
 ## Core Principles
 
 - Independence over central orchestration. One agent failing should not stop the others.

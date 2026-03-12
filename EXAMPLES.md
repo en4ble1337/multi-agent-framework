@@ -29,7 +29,30 @@ Tradeoffs:
 - more operating system management
 - shared storage becomes an important dependency
 
-## Example 2: Containers Plus Shared Volume
+## Example 2: Hybrid Proxmox VE Deployment
+
+Shape:
+
+- Proxmox VE as the host platform
+- Ubuntu 24.04 Desktop virtual machines for agents that need a browser or desktop session
+- LXC containers for agents that do not need browser automation
+- a centralized NFS share mounted as the shared coordination surface
+- Discord as the communication layer for operator instructions and agent coordination
+
+Why it works:
+
+- browser-capable agents get stronger isolation and a full desktop environment
+- lightweight headless agents stay cheap and fast to provision in containers
+- all agents still coordinate through the same shared files and ownership model
+- Discord keeps the communication layer easy to operate and free to use
+
+Tradeoffs:
+
+- you manage two isolation models instead of one
+- browser agents cost more in memory and storage than headless agents
+- NFS becomes a central dependency that should be monitored and backed up
+
+## Example 3: Containers Plus Shared Volume
 
 Shape:
 
@@ -49,7 +72,7 @@ Tradeoffs:
 - browser automation and host integration may need extra care
 - storage semantics must still support the lock protocol
 
-## Example 3: Single Host Plus Per-Agent Users
+## Example 4: Single Host Plus Per-Agent Users
 
 Shape:
 
@@ -69,7 +92,7 @@ Tradeoffs:
 - easier for one agent process to impact others
 - not ideal when agents need separate browser state or credentials
 
-## Example 4: Cloud Instances Plus Managed Storage
+## Example 5: Cloud Instances Plus Managed Storage
 
 Shape:
 
