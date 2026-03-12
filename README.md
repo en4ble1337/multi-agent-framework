@@ -11,6 +11,16 @@ This repository describes an operating model, not a product. The pattern works w
 
 ![Multi-agent framework architecture](docs/images/office-architecture.png)
 
+## Shared Drive Components
+
+The shared drive is the coordination backbone. Each folder has a distinct job so agents can find the right context quickly and avoid stepping on each other.
+
+| Component | What it holds | Benefit |
+|---|---|---|
+| `knowledge/` | Shared research, playbooks, lessons learned, reusable notes | Turns individual work into durable team memory that every agent can reuse |
+| `conference/` | Announcements, standups, decisions, and shared coordination artifacts | Gives humans and agents one visible place for broadcast updates and group context |
+| `agents/<name>/outbox/` | Asynchronous messages and handoff requests between agents | Enables simple cross-agent coordination without requiring a broker or always-on service |
+
 ## What You Get
 
 - A neutral architecture for coordinating multiple agents without a heavy control plane.
